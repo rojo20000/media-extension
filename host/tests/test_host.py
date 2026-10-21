@@ -30,6 +30,15 @@ FAKE = textwrap.dedent("""\
     stage = args[args.index("-P") + 1]
     if url == "fail":
         print("[generic] Extracting"); print("ERROR: [generic] boom: unavailable"); sys.exit(1)
+    if url == "thumbfail":
+        os.makedirs(stage, exist_ok=True)
+        open(os.path.join(stage, "Song.wav"), "w").write("wav")
+        print("ERROR: Postprocessing: Supported filetypes for thumbnail embedding are: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov")
+        sys.exit(1)
+    if url == "mergefail":
+        os.makedirs(stage, exist_ok=True)
+        open(os.path.join(stage, "Song.f137.mp4"), "w").write("video only")
+        print("ERROR: Postprocessing: ffmpeg not found"); sys.exit(1)
     print("[mdl-progress]abc|50|100|NA|1000|1", flush=True)
     if url == "slow":
         time.sleep(30)
@@ -95,6 +104,35 @@ class JobRunnerTest(unittest.TestCase):
         self.assertEqual(self.sent.of("error"), [{"type": "error", "id": "1", "message": "[generic] boom: unavailable"}])
         self.assertEqual(self.sent.of("done"), [])
         self.assertFalse((self.media / ".incoming" / "1").exists())
+
+    def test_thumbnail_embed_failure_still_saves_the_file(self):
+        self.download("thumbfail").join(10)
+        [done] = self.sent.of("done")
+        self.assertEqual(done["path"], str(self.media / "Song.wav"))
+        self.assertEqual(done["note"], "cover art not added")
+        self.assertEqual(self.sent.of("error"), [])
+
+    def test_other_postprocessing_failure_is_an_error(self):
+        self.download("mergefail").join(10)
+        self.assertEqual(self.sent.of("done"), [])
+        self.assertEqual(self.sent.of("error")[0]["message"], "Postprocessing: ffmpeg not found")
+
+    def test_ping_survives_bad_tool_paths(self):
+        runner = JobRunner(Tools(self.runner.tools.ytdlp, ["not", "a", "path"], ["x"]), self.media, self.sent)
+        runner.ping("q")
+        [pong] = self.sent.of("pong")
+        self.assertEqual((pong["ffmpeg"], pong["deno"]), (False, False))
+
+    def test_stale_staging_folders_are_removed_on_start(self):
+        old = self.media / ".incoming" / "old"
+        fresh = self.media / ".incoming" / "fresh"
+        for d in (old, fresh):
+            d.mkdir(parents=True)
+            (d / "x.part").write_text("x")
+        os.utime(old, (time.time() - 3 * 86400,) * 2)
+        JobRunner(self.runner.tools, self.media, self.sent)
+        self.assertFalse(old.exists())
+        self.assertTrue(fresh.exists())
 
     def test_cancel_stops_download(self):
         t = self.download("slow")

@@ -14,6 +14,8 @@ HELPER_VERSION = "1.0.0"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 TEMP_SUFFIXES = (".part", ".ytdl", ".temp")
 PROGRESS_INTERVAL = 0.25
+STALE_STAGING_SECONDS = 24 * 3600
+FILE_ATTRIBUTE_HIDDEN = 0x2
 
 
 def _popen(args, **kw):
@@ -26,6 +28,16 @@ def _kill_tree(proc):
                        capture_output=True, creationflags=NO_WINDOW)
     else:
         proc.kill()
+
+
+def _exists(path):
+    return isinstance(path, str) and Path(path).exists()
+
+
+def _hide(path):
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.kernel32.SetFileAttributesW(str(path), FILE_ATTRIBUTE_HIDDEN)
 
 
 def finished_file(staging):
@@ -46,6 +58,20 @@ class JobRunner:
         self.procs = {}
         self.cancelled = set()
         self.lock = threading.Lock()
+        self.staging_root = self.media_dir / ".incoming"
+        self._remove_stale_staging()
+
+    def _remove_stale_staging(self):
+        """Clear what interrupted jobs (sleep, Chrome quitting) left behind."""
+        if not self.staging_root.is_dir():
+            return
+        cutoff = time.time() - STALE_STAGING_SECONDS
+        for entry in self.staging_root.iterdir():
+            try:
+                if entry.stat().st_mtime < cutoff:
+                    shutil.rmtree(entry, ignore_errors=True)
+            except OSError:
+                pass
 
     def _thread(self, target, *args):
         t = threading.Thread(target=self._guard, args=(target, args), daemon=True)
@@ -66,8 +92,7 @@ class JobRunner:
         except (OSError, subprocess.SubprocessError):
             ytdlp = None
         self.send({"type": "pong", "id": id_, "helper": HELPER_VERSION, "ytdlp": ytdlp,
-                   "ffmpeg": bool(self.tools.ffmpeg and Path(self.tools.ffmpeg).exists()),
-                   "deno": bool(self.tools.deno and Path(self.tools.deno).exists()),
+                   "ffmpeg": _exists(self.tools.ffmpeg), "deno": _exists(self.tools.deno),
                    "media_dir": str(self.media_dir)})
 
     def probe(self, id_, url, site):
@@ -94,7 +119,10 @@ class JobRunner:
             _kill_tree(proc)
 
     def _download(self, id_, msg):
-        staging = self.media_dir / ".incoming" / id_
+        if not self.staging_root.exists():
+            self.staging_root.mkdir(parents=True)
+            _hide(self.staging_root)
+        staging = self.staging_root / id_
         staging.mkdir(parents=True, exist_ok=True)
         try:
             self._run_download(id_, msg, staging)
@@ -135,13 +163,19 @@ class JobRunner:
         if id_ in self.cancelled:
             self.send({"type": "error", "id": id_, "message": "Cancelled"})
             return
-        if proc.returncode != 0:
-            self.send({"type": "error", "id": id_, "message": _last_error(lines, proc.returncode)})
-            return
         result = finished_file(staging)
+        note = None
+        if proc.returncode != 0:
+            message = _last_error(lines, proc.returncode)
+            # A file that can't take cover art (WAV, for example) is still the download.
+            if not (result and message.startswith("Postprocessing:") and "thumbnail" in message.lower()):
+                self.send({"type": "error", "id": id_, "message": message})
+                return
+            note = "cover art not added"
         if result is None:
             self.send({"type": "error", "id": id_, "message": "yt-dlp finished but produced no file"})
             return
         dest = unique_destination(self.media_dir, result.name, media_id or id_)
         shutil.move(str(result), str(dest))
-        self.send({"type": "done", "id": id_, "path": str(dest)})
+        done = {"type": "done", "id": id_, "path": str(dest)}
+        self.send({**done, "note": note} if note else done)

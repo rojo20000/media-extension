@@ -29,6 +29,8 @@ test("jobText per status", () => {
   assert.equal(jobText({ status: "running", stage: "processing" }), "Processing…");
   assert.equal(jobText({ status: "done", path: "C:\\Users\\a\\Music\\media\\Song.opus" }), "Saved: Song.opus");
   assert.equal(jobText({ status: "error", message: "boom" }), "Failed: boom");
+  assert.equal(jobText({ status: "done", path: "C:\\m\\Song.wav", note: "cover art not added" }),
+    "Saved: Song.wav (cover art not added)");
 });
 
 test("helperProblems: not installed", () => {

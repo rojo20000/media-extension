@@ -10,7 +10,8 @@ const items = [
   ["https://m.youtube.com/watch?v=dQw4w9WgXcQ", "youtube", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
   ["https://soundcloud.com/artist/some-track?in=x/sets/y", "soundcloud", "https://soundcloud.com/artist/some-track"],
   ["https://www.tiktok.com/@user.name/video/7234567890123456789?lang=en", "tiktok", "https://www.tiktok.com/@user.name/video/7234567890123456789"],
-  ["https://www.tiktok.com/@user/photo/7234567890123456789", "tiktok", "https://www.tiktok.com/@user/photo/7234567890123456789"],
+  // yt-dlp only recognises /video/ links; photo posts extract through them as audio.
+  ["https://www.tiktok.com/@user/photo/7234567890123456789", "tiktok", "https://www.tiktok.com/@user/video/7234567890123456789"],
 ];
 
 for (const [input, site, url] of items) {

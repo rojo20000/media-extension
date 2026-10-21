@@ -27,7 +27,10 @@ export function fileNameFromUrl(url) {
 }
 
 export function jobText(job) {
-  if (job.status === "done") return `Saved: ${job.path.split(/[\\/]/).pop()}`;
+  if (job.status === "done") {
+    const name = job.path.split(/[\\/]/).pop();
+    return job.note ? `Saved: ${name} (${job.note})` : `Saved: ${name}`;
+  }
   if (job.status === "error") return `Failed: ${job.message}`;
   if (job.stage === "starting") return "Starting…";
   if (job.stage === "processing") return "Processing…";

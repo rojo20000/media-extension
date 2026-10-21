@@ -54,6 +54,8 @@ Other messages:
 
 - **"No watermark-free version offered"** on TikTok means TikTok didn't provide a clean copy of that video. The extension won't save the watermarked one under that button.
 - **"Original file not offered without sign-in"** on SoundCloud means you'll get the best stream instead of the artist's original upload.
+- **"Only a 30-second preview is available"** on SoundCloud means the track is Go+ or DRM-protected, so the button is disabled.
+- **"(cover art not added)"** after a save means the file type (WAV, for example) can't hold artwork. The file itself is complete.
 - **Age-restricted, members-only or private videos** need a signed-in account, which this extension doesn't use.
 - **DRM-protected tracks** can't be downloaded. The popup shows yt-dlp's message.
 
@@ -67,9 +69,9 @@ To remove everything, run `uninstall.ps1`, then remove the extension in `chrome:
 - [ ] YouTube 4K video, **Video**: the label says 2160p, and the saved `.mkv` plays at 2160p.
 - [ ] SoundCloud track with downloads enabled: the label says **original file**.
 - [ ] SoundCloud track without downloads: the label says **best stream**, with the note.
-- [ ] TikTok video, **Video, no watermark**: the saved video has no TikTok logo or username overlay.
+- [ ] **Check this first.** TikTok video, **Video, no watermark**: the saved video has no TikTok logo or username overlay. This couldn't be tested against the real TikTok during development, so if a watermark appears, stop using that button and report it.
 - [ ] TikTok video, **Audio only**: the audio matches what plays in the video, voiceover included.
-- [ ] TikTok photo post: only **Audio only** is offered.
+- [ ] TikTok photo post: only **Audio only** is offered, and it saves the post's sound.
 - [ ] YouTube home page or a TikTok feed: the popup says "Open a specific video or track".
 - [ ] A page with a plain `<video>`: it's listed and downloads.
 - [ ] Download the same thing twice: the second file gets ` [id]` and the first is untouched.

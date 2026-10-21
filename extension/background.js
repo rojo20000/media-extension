@@ -88,18 +88,25 @@ function onNativeMessage(msg) {
     helper = { ok: true, pong: msg };
     pending.delete(msg.id);
     broadcast({ type: "helper", helper });
+    closeIfIdle();
     return;
   }
   if (pending.has(msg.id)) {
     const port = pending.get(msg.id);
     pending.delete(msg.id);
     if (port) post(port, { ...msg, reqId: msg.id });
+    else if (msg.type === "error") {
+      // The helper started but couldn't answer the status check.
+      helper = { ok: false, error: msg.message };
+      broadcast({ type: "helper", helper });
+    }
+    closeIfIdle();
     return;
   }
   if (msg.type === "progress") {
     updateJob(msg.id, { percent: msg.percent, speed: msg.speed, eta: msg.eta, stage: msg.stage });
   } else if (msg.type === "done") {
-    updateJob(msg.id, { status: "done", percent: 100, path: msg.path });
+    updateJob(msg.id, { status: "done", percent: 100, path: msg.path, note: msg.note });
   } else if (msg.type === "error") {
     updateJob(msg.id, { status: "error", message: msg.message });
   }

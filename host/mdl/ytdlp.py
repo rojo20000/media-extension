@@ -31,10 +31,14 @@ def load_tools(config_path, which=shutil.which):
         config = json.loads(Path(config_path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         pass
+    def configured(name):
+        value = config.get(name)
+        return value if isinstance(value, str) and value else None
+
     return Tools(
-        ytdlp=config.get("ytdlp") or which("yt-dlp") or "yt-dlp",
-        ffmpeg=config.get("ffmpeg") or which("ffmpeg"),
-        deno=config.get("deno") or which("deno"),
+        ytdlp=configured("ytdlp") or which("yt-dlp") or "yt-dlp",
+        ffmpeg=configured("ffmpeg") or which("ffmpeg"),
+        deno=configured("deno") or which("deno"),
     )
 
 
@@ -89,6 +93,10 @@ def summarize_probe(info, site):
     elif site == "soundcloud":
         if any(f.get("format_id") == "download" for f in formats):
             options["audio"] = {"available": True, "label": "Audio (original file)"}
+        elif formats and all("preview" in (f.get("format_id") or "") for f in formats):
+            # Signed out, Go+ and DRM tracks only offer the 30-second snippet.
+            options["audio"] = {"available": False, "label": "Audio (best stream)",
+                                "note": "only a 30-second preview is available (Go+ or DRM track)"}
         else:
             options["audio"] = {"available": True, "label": "Audio (best stream)",
                                 "note": "original file not offered without sign-in"}

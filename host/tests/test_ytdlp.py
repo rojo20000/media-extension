@@ -30,6 +30,13 @@ class ToolsTest(unittest.TestCase):
             p.write_bytes(b"\xef\xbb\xbf" + json.dumps({"ytdlp": "Y"}).encode())
             self.assertEqual(load_tools(p, which=lambda name: None).ytdlp, "Y")
 
+    def test_load_tools_ignores_non_string_values(self):
+        # A first-run install.ps1 once captured winget's output into these fields.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.json"
+            p.write_text(json.dumps({"ytdlp": ["Found yt-dlp", "C:\\y.exe"], "ffmpeg": "F", "deno": ["x"]}))
+            self.assertEqual(load_tools(p, which=lambda name: None), Tools("yt-dlp", "F", None))
+
     def test_load_tools_without_config_uses_path_lookup(self):
         tools = load_tools(Path("/nonexistent/config.json"), which=lambda name: f"/usr/bin/{name}")
         self.assertEqual(tools, Tools("/usr/bin/yt-dlp", "/usr/bin/ffmpeg", "/usr/bin/deno"))
@@ -127,6 +134,11 @@ class SummarizeProbeTest(unittest.TestCase):
         s = summarize_probe(self.info([f("hls_opus", "none")]), "soundcloud")
         self.assertEqual(s["options"]["audio"], {"available": True, "label": "Audio (best stream)",
                                                  "note": "original file not offered without sign-in"})
+
+    def test_soundcloud_preview_only_is_not_offered(self):
+        s = summarize_probe(self.info([f("hls_aac_preview", "none"), f("http_mp3_preview", "none")]), "soundcloud")
+        self.assertEqual(s["options"]["audio"], {"available": False, "label": "Audio (best stream)",
+                                                 "note": "only a 30-second preview is available (Go+ or DRM track)"})
 
     def test_tiktok_clean_video_available(self):
         s = summarize_probe(self.info([f("play_addr", note="Direct video"),

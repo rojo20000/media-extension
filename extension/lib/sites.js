@@ -47,7 +47,8 @@ export function classifyUrl(raw) {
     const isPost = parts.length === 3 && parts[0].startsWith("@") &&
       (parts[1] === "video" || parts[1] === "photo") && /^\d+$/.test(parts[2]);
     return isPost
-      ? { site: "tiktok", item: true, url: `https://www.tiktok.com/${parts.join("/")}` }
+      // yt-dlp only recognises /video/ links; photo posts come back as audio through them.
+      ? { site: "tiktok", item: true, url: `https://www.tiktok.com/${parts[0]}/video/${parts[2]}` }
       : { site: "tiktok", item: false, url: raw };
   }
 

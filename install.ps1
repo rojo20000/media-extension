@@ -40,7 +40,8 @@ function Install-WithWinget([string]$Id, [string]$Label) {
     throw "winget isn't available. Install 'App Installer' from the Microsoft Store, then run this again."
   }
   Write-Host "Installing $Label with winget..."
-  winget install -e --id $Id --accept-source-agreements --accept-package-agreements --silent
+  # Out-Host keeps winget's output out of this function's return value.
+  winget install -e --id $Id --accept-source-agreements --accept-package-agreements --silent | Out-Host
   Update-SessionPath
 }
 
