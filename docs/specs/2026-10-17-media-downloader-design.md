@@ -1,7 +1,7 @@
 # Media Downloader Chrome Extension — Design
 
 Date: 2026-10-17
-Status: Draft, awaiting owner approval
+Status: Owner's open questions answered; awaiting final approval
 
 ## Intent
 
@@ -9,11 +9,13 @@ The owner wants to save media they come across while browsing, mainly:
 
 - a song from YouTube or SoundCloud, as audio
 - a TikTok video **without the watermark**
-- the sound from a TikTok, as audio
+- the sound from a TikTok, as audio (the audio track exactly as it plays in
+  that video, not the separate original-sound clip)
 
 They click the extension's toolbar icon, see what media is on the current
 page, and download it. **Quality matters most:** every download should be the
-best quality the site serves.
+best quality the site serves **without signing in** (the owner confirmed
+that no-sign-in is fine).
 
 It's a personal tool. It runs on the owner's own Windows PC, installed with
 "Load unpacked" in developer mode. It will never be published to the Chrome Web
@@ -28,7 +30,8 @@ Store, whose policies forbid YouTube downloaders.
      one file) and "Audio only (best)".
    - SoundCloud: "Audio (best)". When the artist allows downloads, this is the
      original uploaded file. Otherwise it's the best stream served.
-   - TikTok: "Video, no watermark (best)" and "Audio only (sound)".
+   - TikTok: "Video, no watermark (best)" and "Audio only (sound)", which is the video's own audio track, extracted
+     with `-x`. No `tiktok.com/music/...` support is needed.
 3. **Fallback for other sites:** list the `<video>`/`<audio>` elements and
    direct media URLs found on the page (sources the page's DOM exposes, plus
    media requests seen on the tab), each with a download button.
@@ -50,7 +53,11 @@ Store, whose policies forbid YouTube downloaders.
 - Breaking DRM. Tracks protected by DRM (some SoundCloud Go+ tracks, for
   example) show up as not downloadable with a clear message.
 - Members-only, age-restricted or private content that needs a signed-in
-  session. The owner's Chrome cookies are not passed to the helper in v1.
+  session. The owner's Chrome cookies are not passed to the helper in v1
+  (owner confirmed). When a better format would need sign-in (a SoundCloud
+  original file, for example), save the best one available without it and
+  label the result in the popup ("best stream; original needs sign-in"), so
+  quality is never lowered silently.
 - In-popup playback, a library view, or download history beyond the current
   session.
 
@@ -195,5 +202,6 @@ A README covering: load unpacked, run `install.ps1`, how to update yt-dlp
 - TikTok photo/slideshow posts offer "Audio only".
 - If TikTok has no watermark-free format for a video, the button is disabled
   with that reason, and no watermarked file is saved under that label.
-- The YouTube video container is mkv or mp4, whichever avoids re-encoding.
+- (Owner confirmed) `.mkv` is fine for video. Use mp4 only when the codecs
+  allow it without re-encoding.
 - Audio files get embedded metadata and thumbnails.
