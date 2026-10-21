@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+node_modules/
+host/config.json
+host/media_host.bat
+host/com.media_extension.host.json
+*.pem
