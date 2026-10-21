@@ -5,3 +5,4 @@ host/config.json
 host/media_host.bat
 host/com.media_extension.host.json
 *.pem
+media_host.log
