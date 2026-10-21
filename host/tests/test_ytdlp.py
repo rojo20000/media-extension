@@ -24,6 +24,12 @@ class ToolsTest(unittest.TestCase):
             p.write_text(json.dumps({"ytdlp": "Y", "ffmpeg": "F", "deno": "D"}))
             self.assertEqual(load_tools(p), Tools("Y", "F", "D"))
 
+    def test_load_tools_accepts_utf8_bom(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.json"
+            p.write_bytes(b"\xef\xbb\xbf" + json.dumps({"ytdlp": "Y"}).encode())
+            self.assertEqual(load_tools(p, which=lambda name: None).ytdlp, "Y")
+
     def test_load_tools_without_config_uses_path_lookup(self):
         tools = load_tools(Path("/nonexistent/config.json"), which=lambda name: f"/usr/bin/{name}")
         self.assertEqual(tools, Tools("/usr/bin/yt-dlp", "/usr/bin/ffmpeg", "/usr/bin/deno"))

@@ -28,7 +28,7 @@ def load_tools(config_path, which=shutil.which):
     """Absolute tool paths written by install.ps1, falling back to PATH lookup."""
     config = {}
     try:
-        config = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        config = json.loads(Path(config_path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         pass
     return Tools(
