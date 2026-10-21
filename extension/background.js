@@ -43,12 +43,13 @@ function native() {
     const message = chrome.runtime.lastError?.message || "The helper stopped unexpectedly";
     nativePort = null;
     helper = { ok: false, error: message };
+    // Popups learn the helper state before the errors it causes.
+    broadcast({ type: "helper", helper });
     for (const job of jobs.values()) {
       if (job.status === "running") updateJob(job.id, { status: "error", message });
     }
     for (const [id, port] of pending) if (port) post(port, { type: "error", reqId: id, message });
     pending.clear();
-    broadcast({ type: "helper", helper });
   });
   return nativePort;
 }
