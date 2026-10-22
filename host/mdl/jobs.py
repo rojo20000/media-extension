@@ -1,4 +1,5 @@
 """Runs yt-dlp for probes and downloads, one thread per request."""
+import itertools
 import json
 import shutil
 import subprocess
@@ -7,13 +8,14 @@ import threading
 import time
 from pathlib import Path
 
-from .paths import unique_destination
-from .ytdlp import download_args, parse_line, probe_args, summarize_probe
+from .paths import move_unique
+from .ytdlp import download_args, parse_line, probe_args, summarize_probe, title_byte_limit
 
 HELPER_VERSION = "1.0.0"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 TEMP_SUFFIXES = (".part", ".ytdl", ".temp")
 PROGRESS_INTERVAL = 0.25
+PROBE_TIMEOUT = 60  # seconds
 STALE_STAGING_SECONDS = 24 * 3600
 FILE_ATTRIBUTE_HIDDEN = 0x2
 
@@ -100,7 +102,14 @@ class JobRunner:
 
     def _probe(self, id_, url, site):
         proc = _popen(probe_args(self.tools, url), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
+        try:
+            out, err = proc.communicate(timeout=PROBE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            proc.communicate()
+            self.send({"type": "error", "id": id_,
+                       "message": f"Timed out reading this page (yt-dlp didn't answer in {PROBE_TIMEOUT:g} s)"})
+            return
         if proc.returncode != 0:
             lines = err.decode("utf-8", "replace").splitlines()
             self.send({"type": "error", "id": id_, "message": _last_error(lines, proc.returncode)})
@@ -118,12 +127,21 @@ class JobRunner:
         if proc and proc.poll() is None:
             _kill_tree(proc)
 
-    def _download(self, id_, msg):
+    def _new_staging(self, id_):
+        """An empty folder for this job's partial files, named short to keep paths short."""
         if not self.staging_root.exists():
-            self.staging_root.mkdir(parents=True)
+            self.staging_root.mkdir(parents=True, exist_ok=True)
             _hide(self.staging_root)
-        staging = self.staging_root / id_
-        staging.mkdir(parents=True, exist_ok=True)
+        for n in itertools.count(1):
+            staging = self.staging_root / (id_[:8] if n == 1 else f"{id_[:8]}-{n}")
+            try:
+                staging.mkdir()
+                return staging
+            except FileExistsError:
+                continue
+
+    def _download(self, id_, msg):
+        staging = self._new_staging(id_)
         try:
             self._run_download(id_, msg, staging)
         finally:
@@ -134,7 +152,7 @@ class JobRunner:
 
     def _run_download(self, id_, msg, staging):
         args = download_args(self.tools, msg["url"], msg.get("site", "generic"), msg.get("mode", "video"),
-                             bool(msg.get("mp3")), str(staging), msg.get("referer"))
+                             bool(msg.get("mp3")), str(staging), msg.get("referer"), title_byte_limit(staging))
         proc = _popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         with self.lock:
             self.procs[id_] = proc
@@ -175,7 +193,6 @@ class JobRunner:
         if result is None:
             self.send({"type": "error", "id": id_, "message": "yt-dlp finished but produced no file"})
             return
-        dest = unique_destination(self.media_dir, result.name, media_id or id_)
-        shutil.move(str(result), str(dest))
+        dest = move_unique(result, self.media_dir, media_id or id_)
         done = {"type": "done", "id": id_, "path": str(dest)}
         self.send({**done, "note": note} if note else done)

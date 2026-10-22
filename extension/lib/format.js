@@ -41,9 +41,15 @@ export function jobText(job) {
 
 export function helperProblems(helper, site) {
   if (helper.ok === false) {
-    return /not found/i.test(helper.error || "")
-      ? ["Helper not installed. Run install.ps1 (see README), then reopen this popup."]
-      : [`Helper problem: ${helper.error}`];
+    const error = helper.error || "";
+    if (/native messaging host not found/i.test(error)) {
+      return ["Helper not installed. Run install.ps1 (see README), then reopen this popup."];
+    }
+    // Chrome found the helper but it couldn't start, e.g. Python or this folder moved.
+    if (/native host has exited|error when communicating with the native messaging host/i.test(error)) {
+      return [`Helper problem: ${error} Re-run install.ps1. If it still fails, check host\\media_host.log.`];
+    }
+    return [`Helper problem: ${error}`];
   }
   if (!helper.ok) return [];
   const { pong } = helper;

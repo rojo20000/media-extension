@@ -12,7 +12,14 @@ TIKTOK_CLEAN = "b[format_note!*=?watermark][format_note!*=?UNPLAYABLE]"
 PROGRESS_TEMPLATE = ("download:[mdl-progress]%(info.id)s|%(progress.downloaded_bytes)s|"
                      "%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|"
                      "%(progress.speed)s|%(progress.eta)s")
-OUTPUT_TEMPLATE = "%(title).150B.%(ext)s"
+OUTPUT_TEMPLATE = "%(title).{}B.%(ext)s"
+
+# Windows paths (and ffmpeg) stop at 260 characters, including the final NUL.
+MAX_PATH = 259
+# What yt-dlp adds after the title while working, e.g. ".f137.mp4.part-Frag12".
+SUFFIX_ROOM = 25
+TITLE_BYTES_MAX = 150
+TITLE_BYTES_MIN = 40
 
 _STAGE = re.compile(r"^\[(Merger|ExtractAudio|EmbedThumbnail|Metadata|Fixup\w*|VideoRemuxer|ThumbnailsConvertor)\]")
 
@@ -55,9 +62,20 @@ def probe_args(tools, url):
     return [tools.ytdlp, "-J", "--no-playlist", "--no-warnings", *_common(tools), url]
 
 
-def download_args(tools, url, site, mode, mp3, staging_dir, referer):
+def title_byte_limit(staging_dir):
+    """How many bytes of title fit in `staging_dir` without passing MAX_PATH.
+
+    Bytes, because yt-dlp truncates in UTF-8 bytes, and no title has more UTF-16
+    characters than UTF-8 bytes. A very long folder still gets a usable title.
+    """
+    room = MAX_PATH - len(str(staging_dir)) - 1 - SUFFIX_ROOM
+    return max(TITLE_BYTES_MIN, min(TITLE_BYTES_MAX, room))
+
+
+def download_args(tools, url, site, mode, mp3, staging_dir, referer, title_bytes=TITLE_BYTES_MAX):
     args = [tools.ytdlp, *_common(tools), "--newline", "--progress", "--no-playlist", "--no-mtime",
-            "--progress-template", PROGRESS_TEMPLATE, "-P", staging_dir, "-o", OUTPUT_TEMPLATE]
+            "--progress-template", PROGRESS_TEMPLATE, "-P", staging_dir,
+            "-o", OUTPUT_TEMPLATE.format(title_bytes)]
     if site == "tiktok":
         # TikTok's audio-only format is the original sound, not this video's audio.
         args += ["-f", TIKTOK_CLEAN if mode == "video" else TIKTOK_CLEAN + "/b/ba"]

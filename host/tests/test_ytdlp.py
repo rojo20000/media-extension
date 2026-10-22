@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mdl.ytdlp import (TIKTOK_CLEAN, Tools, download_args, load_tools, parse_line,
-                       probe_args, summarize_probe)
+from mdl.ytdlp import (MAX_PATH, SUFFIX_ROOM, TIKTOK_CLEAN, Tools, download_args, load_tools,
+                       parse_line, probe_args, summarize_probe, title_byte_limit)
 
 TOOLS = Tools(ytdlp="C:\\bin\\yt-dlp.exe", ffmpeg="C:\\bin\\ffmpeg.exe", deno="C:\\bin\\deno.exe")
 
@@ -104,6 +104,26 @@ class DownloadArgsTest(unittest.TestCase):
         self.assertEqual(args[args.index("--referer") + 1], "https://page/")
         self.assertEqual(fmt_arg(args), "bv*+ba/b")
         self.assertNotIn("--referer", dl("youtube", "video", referer="https://page/"))
+
+
+class TitleByteLimitTest(unittest.TestCase):
+    def test_short_staging_path_keeps_150_bytes(self):
+        self.assertEqual(title_byte_limit("C:\\Users\\a\\Music\\media\\.incoming\\1a2b3c4d"), 150)
+
+    def test_long_staging_path_fits_under_max_path(self):
+        staging = "C:\\Users\\someone.long\\OneDrive - Some Organisation Name\\Music\\media\\" + "x" * 80 + "\\.incoming\\1a2b3c4d"
+        limit = title_byte_limit(staging)
+        self.assertLess(limit, 150)
+        # <staging>\<title>.f137.mp4.part-Frag12 must stay within Windows' limit.
+        self.assertEqual(len(staging) + 1 + limit + SUFFIX_ROOM, MAX_PATH)
+        self.assertLessEqual(len(staging + "\\" + "t" * limit + ".f137.mp4.part-Frag12"), MAX_PATH)
+
+    def test_very_long_staging_path_keeps_a_usable_title(self):
+        self.assertEqual(title_byte_limit("C:\\" + "x" * 240), 40)
+
+    def test_download_args_use_the_limit(self):
+        args = download_args(TOOLS, "u", "youtube", "video", False, "C:\\stage\\1", None, title_bytes=61)
+        self.assertEqual(args[args.index("-o") + 1], "%(title).61B.%(ext)s")
 
 
 def f(fid, vcodec="h264", height=None, note=None):

@@ -38,9 +38,20 @@ test("helperProblems: not installed", () => {
     ["Helper not installed. Run install.ps1 (see README), then reopen this popup."]);
 });
 
-test("helperProblems: other disconnect", () => {
+test("helperProblems: helper can't start suggests re-running the installer", () => {
+  const hint = "Re-run install.ps1. If it still fails, check host\\media_host.log.";
   assert.deepEqual(helperProblems({ ok: false, error: "Native host has exited." }),
-    ["Helper problem: Native host has exited."]);
+    [`Helper problem: Native host has exited. ${hint}`]);
+  assert.deepEqual(helperProblems({ ok: false, error: "Error when communicating with the native messaging host." }),
+    [`Helper problem: Error when communicating with the native messaging host. ${hint}`]);
+});
+
+test("helperProblems: error reported by the helper", () => {
+  assert.deepEqual(helperProblems({ ok: false, error: "Couldn't create the media folder: access denied" }),
+    ["Helper problem: Couldn't create the media folder: access denied"]);
+  // Only Chrome's own message means the helper isn't registered.
+  assert.deepEqual(helperProblems({ ok: false, error: "Couldn't open the log file: file not found" }),
+    ["Helper problem: Couldn't open the log file: file not found"]);
 });
 
 test("helperProblems: missing tools", () => {
