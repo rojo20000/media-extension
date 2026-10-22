@@ -1,4 +1,5 @@
 """Where downloads go: a "media" folder inside the user's real Music folder."""
+import os
 import sys
 from pathlib import Path
 
@@ -38,16 +39,33 @@ def media_dir():
     return path
 
 
-def unique_destination(directory, filename, media_id):
-    """A path in `directory` for `filename` that doesn't overwrite anything."""
+def _candidates(directory, filename, media_id):
+    """`Title.ext`, then `Title [id].ext`, then `Title [id] (2).ext`, (3), ..."""
     directory = Path(directory)
-    candidate = directory / filename
-    if not candidate.exists():
-        return candidate
+    yield directory / filename
     stem, suffix = Path(filename).stem, Path(filename).suffix
-    candidate = directory / f"{stem} [{media_id}]{suffix}"
+    yield directory / f"{stem} [{media_id}]{suffix}"
     n = 2
-    while candidate.exists():
-        candidate = directory / f"{stem} [{media_id}] ({n}){suffix}"
+    while True:
+        yield directory / f"{stem} [{media_id}] ({n}){suffix}"
         n += 1
-    return candidate
+
+
+def move_unique(src, directory, media_id):
+    """Move `src` into `directory` under the first free name, never overwriting anything.
+
+    Each name is claimed by creating it exclusively before the file is renamed onto
+    it, so a file saved under that name in the meantime is skipped, not replaced.
+    `src` must be on the same drive as `directory`.
+    """
+    for candidate in _candidates(directory, Path(src).name, media_id):
+        try:
+            os.close(os.open(candidate, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            continue
+        try:
+            os.replace(src, candidate)
+        except BaseException:
+            candidate.unlink(missing_ok=True)
+            raise
+        return candidate

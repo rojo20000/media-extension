@@ -15,18 +15,37 @@ HERE = Path(__file__).resolve().parent
 log = logging.getLogger("media_host")
 
 
-def main(stdin=None, stdout=None, tools=None, media=None):
+def setup_logging(path):
+    """Log this session to `path`. Returns why that isn't possible, or None."""
+    try:
+        handler = logging.FileHandler(path, mode="w", encoding="utf-8")
+    except OSError as e:
+        return f"Couldn't open the log file: {e}"
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logging.root.addHandler(handler)
+    logging.root.setLevel(logging.INFO)
+    return None
+
+
+def main(stdin=None, stdout=None, tools=None, media=None, startup_error=None):
     if stdin is None:
         stdin, stdout = binary_stdio()
     tools = tools or load_tools(HERE / "config.json")
-    media = Path(media) if media else media_dir()
     lock = threading.Lock()
 
     def send(msg):
         log.info("-> %s %s", msg.get("type"), msg.get("id"))
         write_message(stdout, msg, lock)
 
-    runner = JobRunner(tools, media, send)
+    # A helper that can't start answers with the reason, so the popup can show it;
+    # exiting would only give Chrome's "Native host has exited."
+    problems = [startup_error] if startup_error else []
+    runner = None
+    try:
+        runner = JobRunner(tools, Path(media) if media else media_dir(), send)
+    except OSError as e:
+        log.exception("couldn't prepare the media folder")
+        problems.append(f"Couldn't create the media folder: {e}")
     threads = []
     while True:
         msg = read_message(stdin)
@@ -35,7 +54,9 @@ def main(stdin=None, stdout=None, tools=None, media=None):
         id_, kind = msg.get("id"), msg.get("type")
         log.info("<- %s %s %s", kind, id_, msg.get("url", ""))
         try:
-            if kind == "ping":
+            if problems and (kind == "ping" or runner is None):
+                send({"type": "error", "id": id_, "message": " ".join(problems)})
+            elif kind == "ping":
                 runner.ping(id_)
             elif kind == "probe":
                 threads.append(runner.probe(id_, msg["url"], msg.get("site", "generic")))
@@ -54,6 +75,4 @@ def main(stdin=None, stdout=None, tools=None, media=None):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename=str(HERE / "media_host.log"), filemode="w", level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(message)s", encoding="utf-8")
-    main()
+    main(startup_error=setup_logging(HERE / "media_host.log"))
