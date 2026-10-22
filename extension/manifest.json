@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Media Downloader",
+  "version": "1.0.0",
+  "description": "Lists the media on the current page and saves it at the best quality to Music\\media.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5gmusYJB+7xtS3i/w4Mab5HYMMuPh4RfRZPv6R5J9imrHtebm63fDbLlYbZaa1pWnH+yXTrKA9zLnj6SHwidwDlwFC1uHBB8ytx4kxp0V8Hu+Hlm/argcvfdg3aHpSOBQtwBnEE5q1orYU/gR5vaXQQa3Eb1fcdl39epP6aokZSzKSBbYJyOq7WYZbW71W2BWI+9iUFu41XvaRiWSmrRI0pFdABay2w+2+iCQ5bMpnkFdxxzL+ciKCt4Cws7vbbxzkXE3yTm7OLm/Db95XbUFmvDzc5j80YZLHgAhWJwtQsMwHUe0auO89ftibPeGvTggP3Xd0FH1rpMVhu9RSU54QIDAQAB",
+  "permissions": ["nativeMessaging", "scripting", "activeTab", "tabs", "webRequest", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Media Downloader",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}

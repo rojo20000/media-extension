@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Media Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="20" height="20">
+    <h1>Media Downloader</h1>
+    <span id="status" class="dot" title="Helper status"></span>
+  </header>
+  <div id="banner" class="banner" hidden></div>
+  <main id="main"><p class="muted">Loading…</p></main>
+  <footer id="footer" hidden>
+    <label class="mp3"><input type="checkbox" id="mp3"> Convert audio to MP3</label>
+    <div id="dest" class="muted small"></div>
+  </footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
